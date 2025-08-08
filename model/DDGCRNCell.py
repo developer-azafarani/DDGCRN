@@ -1,5 +1,10 @@
 import torch
 import torch.nn as nn
+
+# DML edit started
+import torch.nn.functional as F
+
+# DML edit finished
 from model.DDGCN import DGCN
 
 
@@ -13,17 +18,38 @@ class DDGCRNCell(
         self.gate = DGCN(dim_in + self.hidden_dim, 2 * dim_out, cheb_k, embed_dim)
         self.update = DGCN(dim_in + self.hidden_dim, dim_out, cheb_k, embed_dim)
 
+        # DML edit started
+        self.E1 = nn.Parameter(torch.randn(node_num, embed_dim))
+        self.E2 = nn.Parameter(torch.randn(node_num, embed_dim))
+        # DML edit finished
+
     def forward(self, x, state, node_embeddings):
         # x: B, num_nodes, input_dim
         # state: B, num_nodes, hidden_dim
         state = state.to(x.device)
         input_and_state = torch.cat((x, state), dim=-1)
-        z_r = torch.sigmoid(self.gate(input_and_state, node_embeddings))
+        # DML edit started
+        # z_r = torch.sigmoid(self.gate(input_and_state, node_embeddings))
+        A_learned = self.compute_learned_adj()  # [N, N]
+        z_r = torch.sigmoid(self.gate(input_and_state, node_embeddings, A_learned))
         z, r = torch.split(z_r, self.hidden_dim, dim=-1)
         candidate = torch.cat((x, z * state), dim=-1)
-        hc = torch.tanh(self.update(candidate, node_embeddings))
+        # Pass A_learned to DGCN as the initial adjacency
+        # hc = torch.tanh(self.update(candidate, node_embeddings))
+        hc = torch.tanh(self.update(candidate, node_embeddings, A_learned))
+        # DML edit finished
         h = r * state + (1 - r) * hc
         return h
 
     def init_hidden_state(self, batch_size):
         return torch.zeros(batch_size, self.node_num, self.hidden_dim)
+
+    # DML edit started
+    def compute_learned_adj(self):
+        # E1: [N, d], E2: [N, d]
+        a = torch.matmul(self.E1, self.E2.T)  # [N, N]
+        a = torch.tanh(a)
+        a = F.relu(a)
+        return a
+
+    # DML edit finished

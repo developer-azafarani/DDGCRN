@@ -102,10 +102,17 @@ class DGCN(nn.Module):
             )
         )
 
-    def forward(self, x, node_embeddings):
+    # DML edit started
+    def forward(self, x, node_embeddings, initial_adj=None):
         # x shaped[B, N, C], node_embeddings shaped [N, D] -> supports shaped [N, N]
         # output shape [B, N, C]
-        node_num = node_embeddings[0].shape[1]
+        # node_num = node_embeddings[0].shape[1]
+        node_num = x.shape[1]
+        if initial_adj is not None:
+            supports1 = initial_adj  # Use learned adjacency
+        else:
+            supports1 = torch.eye(node_num).to(x.device)  # fallback
+        # DML edit finished
         supports1 = torch.eye(node_num).to(node_embeddings[0].device)
         filter = self.fc(x)
         nodevec = torch.tanh(torch.mul(node_embeddings[0], filter))  # [B,N,dim_in]
