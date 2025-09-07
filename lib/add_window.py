@@ -33,5 +33,3 @@ if __name__ == '__main__':
     print(data.shape)
     X, Y = Add_Window_Horizon(data, horizon=2)
     print(X.shape, Y.shape)
-
-
